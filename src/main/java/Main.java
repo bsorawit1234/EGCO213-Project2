@@ -1,14 +1,17 @@
 import java.io.*;
 import java.util.*;
 import java.lang.*;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 
 public class Main {
     public static void main(String[] args) {
         String path = "src/main/java/";
         String filename = "config.txt";
+        CountDownLatch mainLatch = new CountDownLatch(1); // mainLatch is used for signal other thread to start after mainThread prints day
 
         boolean openSuccess = false;
-
 
         while (!openSuccess) {
             try {
@@ -51,6 +54,32 @@ public class Main {
             } catch (Exception e) {
                 System.out.println(e);
             }
+        }
+    }
+}
+
+class SupplierThread extends Thread {
+    private CountDownLatch mainLatch;
+    private CyclicBarrier barrier;
+    private String material1, material2;
+
+    public SupplierThread(String name, String material1, String material2, CountDownLatch mainLatch, CyclicBarrier barrier) {
+        super(name);
+        this.material1 = material1;
+        this.material2 = material2;
+        this.mainLatch = mainLatch;
+        this.barrier = barrier;
+    }
+
+    public void run() {
+        try {
+            mainLatch.await(); // wait for main thread print day
+            // rate and balance acquire from class Material
+            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material1_Rate, material1, material1_Balance, material1);
+            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material2_Rate, material2, material2_Balance, material2);
+            barrier.await();
+        } catch (InterruptedException | BrokenBarrierException e) {
+            throw new RuntimeException(e);
         }
     }
 }
