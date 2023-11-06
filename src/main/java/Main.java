@@ -61,23 +61,32 @@ public class Main {
 class SupplierThread extends Thread {
     private CountDownLatch mainLatch;
     private CyclicBarrier barrier;
-    private String material1, material2;
+    private ArrayList<Integer> materialRate;
+    private ArrayList<Material> material; //each thread access same object
 
-    public SupplierThread(String name, String material1, String material2, CountDownLatch mainLatch, CyclicBarrier barrier) {
+    public SupplierThread(String name, CountDownLatch mainLatch, CyclicBarrier barrier) {
         super(name);
-        this.material1 = material1;
-        this.material2 = material2;
         this.mainLatch = mainLatch;
         this.barrier = barrier;
+    }
+
+    public void addMaterial(Material mat) {
+        //in main method create material from input file and then push it to ArrayList of each SupplierThread
+        material.add(mat);
+    }
+
+    public void addRate(int rt) {
+        materialRate.add(rt);
     }
 
     public void run() {
         try {
             mainLatch.await(); // wait for main thread print day
-            // rate and balance acquire from class Material
-            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material1_Rate, material1, material1_Balance, material1);
-            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material2_Rate, material2, material2_Balance, material2);
-            barrier.await();
+            for(int i = 0; i < material.size(); i++) {
+                material.get(i).addBalance(materialRate.get(i));
+                System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), materialRate.get(i), material.get(i).getName(), material.get(i).getBalance(), material.get(i).getName());
+            }
+            barrier.await(); // signal for start factory thread
         } catch (InterruptedException | BrokenBarrierException e) {
             throw new RuntimeException(e);
         }
