@@ -1,9 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.lang.*;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.*;
 
 public class Main {
     public static void main(String[] args) {
@@ -22,6 +20,8 @@ public class Main {
                 String line;
                 String[] col;
 
+                ArrayList<Material> Materials = new ArrayList<Material>();
+                ArrayList<SupplierThread> Suppliers = new ArrayList<SupplierThread>();
                 for(int i = 0; scanner.hasNext(); i++) {
                     line = scanner.nextLine();
                     col = line.split(",");
@@ -33,15 +33,22 @@ public class Main {
                     if(i < 2) {
                         if(type.equals("D")) {
                             days = Integer.parseInt(col[1].trim());
+                            System.out.printf("%-16s>>  simulation days = %d\n", Thread.currentThread().getName(),days);
                         } else if(type.equals("M")) {
-                            m1 = col[1].trim();
-                            m2 = col[2].trim();
+                            for(int j = 1; j < col.length; j++) {
+                                Materials.add(new Material(col[j].trim()));
+                            }
                         }
                     } else {
                         if(type.equals("S")) {
-                            sup_name = col[1].trim();
-                            s1 = Integer.parseInt(col[2].trim());
-                            s2 = Integer.parseInt(col[3].trim());
+                            System.out.printf("%-16s>>  %s daily supply rates =", Thread.currentThread().getName(), col[1].trim());
+                            for(int j = 0; j < Materials.size(); j++) {
+                                int balance = Integer.parseInt(col[j+2].trim());
+                                System.out.printf(" %3d %s", balance, Materials.get(j).getName());
+                                Materials.get(j).setBalance(balance);
+                            }
+                            System.out.println();
+                            Suppliers.add(new SupplierThread(col[1].trim(), Materials));
                         } else if(type.equals("F")) {
                             fac_name = col[1].trim();
                             product_name = col[2].trim();
@@ -51,6 +58,8 @@ public class Main {
                         }
                     }
                 }
+                for(Material m: Materials) System.out.println(m.getName() + " " + m.balance);
+                for(SupplierThread s: Suppliers) System.out.println(s.getName() + ">>>");
             } catch (Exception e) {
                 System.out.println(e);
             }
@@ -58,28 +67,58 @@ public class Main {
     }
 }
 
+class Material {
+    int balance;
+    private String name;
+
+    public Material (String matName) {
+        name = matName;
+    }
+
+    public int getBalance() {
+        return balance;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void addBalance(int ba) {
+        balance += ba;
+    }
+
+    public void useBalance(int ba) {
+
+    }
+}
+
 class SupplierThread extends Thread {
     private CountDownLatch mainLatch;
     private CyclicBarrier barrier;
-    private String material1, material2;
+//    private String material1, material2;
+    private ArrayList<Material> ML;
 
-    public SupplierThread(String name, String material1, String material2, CountDownLatch mainLatch, CyclicBarrier barrier) {
+//    public SupplierThread(String name, CountDownLatch mainLatch, CyclicBarrier barrier, ArrayList<Material> M) {
+    public SupplierThread(String name,  ArrayList<Material> M) {
         super(name);
-        this.material1 = material1;
-        this.material2 = material2;
-        this.mainLatch = mainLatch;
-        this.barrier = barrier;
+        ML = M;
+//        this.mainLatch = mainLatch;
+//        this.barrier = barrier;
     }
 
     public void run() {
         try {
             mainLatch.await(); // wait for main thread print day
             // rate and balance acquire from class Material
-            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material1_Rate, material1, material1_Balance, material1);
-            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material2_Rate, material2, material2_Balance, material2);
+//            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material1_Rate, material1, material1_Balance, material1);
+//            System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), material2_Rate, material2, material2_Balance, material2);
             barrier.await();
         } catch (InterruptedException | BrokenBarrierException e) {
             throw new RuntimeException(e);
         }
     }
+}
+
+class FactoryThread extends Thread {
+
 }
