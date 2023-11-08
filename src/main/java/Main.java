@@ -22,11 +22,14 @@ public class Main {
 
                 ArrayList<Material> Materials = new ArrayList<Material>();
                 ArrayList<SupplierThread> Suppliers = new ArrayList<SupplierThread>();
+                int days = 0;
+                int sup_parties = 0;
+                int fac_parties = 0;
+
                 for(int i = 0; scanner.hasNext(); i++) {
                     line = scanner.nextLine();
                     col = line.split(",");
                     String type = col[0].trim();
-                    int days = 0;
                     String m1, m2, sup_name, fac_name, product_name; // materials 1 & 2, supplier name, factory name, product name
                     int s1, s2, f_lot, f_1, f_2; // supply materials 1 & 2, factory daily lot, materials require
 
@@ -41,14 +44,16 @@ public class Main {
                         }
                     } else {
                         if(type.equals("S")) {
+                            ArrayList<Integer> sup_rate = new ArrayList<Integer>();
                             System.out.printf("%-16s>>  %s daily supply rates =", Thread.currentThread().getName(), col[1].trim());
                             for(int j = 0; j < Materials.size(); j++) {
                                 int balance = Integer.parseInt(col[j+2].trim());
                                 System.out.printf(" %3d %s", balance, Materials.get(j).getName());
-//                                Materials.get(j).setBalance(balance);
+                                sup_rate.add(balance);
                             }
                             System.out.println();
-                            Suppliers.add(new SupplierThread(col[1].trim(), Materials));
+                            Suppliers.add(new SupplierThread(col[1].trim(), Materials, sup_rate));
+                            sup_parties++;
                         } else if(type.equals("F")) {
                             fac_name = col[1].trim();
                             product_name = col[2].trim();
@@ -58,8 +63,16 @@ public class Main {
                         }
                     }
                 }
-                for(Material m: Materials) System.out.println(m.getName() + " " + m.balance);
-                for(SupplierThread s: Suppliers) System.out.println(s.getName() + ">>>");
+
+                for(SupplierThread s: Suppliers) s.setBarrier(sup_parties);
+
+//                for(int i = 1; i <= days; i++) {
+                    System.out.printf("%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
+//                    System.out.printf("%-16s>>  Day %d \n", Thread.currentThread().getName(), i);
+                    for(SupplierThread s: Suppliers) {
+                        s.start();
+                    }
+//                }
             } catch (Exception e) {
                 System.out.println(e);
             }
@@ -67,11 +80,12 @@ public class Main {
     }
 }
 
-class Material {
+class Material extends Semaphore {
     int balance;
     private String name;
 
     public Material (String matName) {
+        super(1, true);
         name = matName;
     }
 
@@ -97,41 +111,36 @@ class SupplierThread extends Thread {
     private CyclicBarrier barrier;
   
     private ArrayList<Material> ML;
-    public SupplierThread(String name,  ArrayList<Material> M) {
+    private ArrayList<Integer> sup_rate;
+    public SupplierThread(String name,  ArrayList<Material> M, ArrayList<Integer> sr) {
         super(name);
         ML = M;
+        sup_rate = sr;
+//        this.mainLatch = mainLatch;
+//        barrier = ba;
+//
+//     public SupplierThread(String name, CountDownLatch mainLatch, CyclicBarrier barrier) {
+//        super(name);
 //        this.mainLatch = mainLatch;
 //        this.barrier = barrier;
-
-    private ArrayList<Integer> materialRate;
-    private ArrayList<Material> material; //each thread access same object
-
-    // public SupplierThread(String name, CountDownLatch mainLatch, CyclicBarrier barrier) {
-    //    super(name);
-    //    this.mainLatch = mainLatch;
-    //    this.barrier = barrier;
     }
 
-    public void addMaterial(Material mat) {
-        //in main method create material from input file and then push it to ArrayList of each SupplierThread
-        material.add(mat);
-    }
-
-    public void addRate(int rt) {
-        materialRate.add(rt);
+    public void setBarrier(int parties) {
+        barrier = new CyclicBarrier(parties);
     }
 
     public void run() {
-        try {
-            mainLatch.await(); // wait for main thread print day
-            for(int i = 0; i < material.size(); i++) {
-                material.get(i).addBalance(materialRate.get(i));
-                System.out.printf("%s >> Put %d %s balance = %d %s", Thread.currentThread().getName(), materialRate.get(i), material.get(i).getName(), material.get(i).getBalance(), material.get(i).getName());
-            }
-            barrier.await(); // signal for start factory thread
-        } catch (InterruptedException | BrokenBarrierException e) {
-            throw new RuntimeException(e);
+        for(int i = 0; i < ML.size(); i++) {
+            ML.get(i).addBalance(sup_rate.get(i));
+            System.out.printf("%-16s>>  %-8s %3d %-10s balance = %3d %s\n", Thread.currentThread().getName(), "Put", sup_rate.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
         }
+//        try {
+//            barrier.await(); // signal for start factory thread
+//        } catch (InterruptedException | BrokenBarrierException e) {
+////        } catch (Exception e) {
+//            throw new RuntimeException(e);
+////            System.out.println(e);
+//        }
     }
 }
 
