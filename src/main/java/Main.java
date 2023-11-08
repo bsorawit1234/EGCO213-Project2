@@ -45,7 +45,7 @@ public class Main {
                             for(int j = 0; j < Materials.size(); j++) {
                                 int balance = Integer.parseInt(col[j+2].trim());
                                 System.out.printf(" %3d %s", balance, Materials.get(j).getName());
-                                Materials.get(j).setBalance(balance);
+//                                Materials.get(j).setBalance(balance);
                             }
                             System.out.println();
                             Suppliers.add(new SupplierThread(col[1].trim(), Materials));
