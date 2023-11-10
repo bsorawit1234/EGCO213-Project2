@@ -1,0 +1,7 @@
+D, 6
+M, buttons, zippers, velcros
+S, Supplier 1,  50, 50, 50
+S, Supplier 2,  100,  100,  100
+F, Factory 1, Handbags, 10, 2, 6, 2
+F, Factory 2, Jackets,  20, 8, 1, 2
+F, Factory 3, Pants,    40, 3, 3, 2
