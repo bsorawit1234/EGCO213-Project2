@@ -8,8 +8,6 @@ public class Main {
     public static void main(String[] args) {
         String path = "src/main/java/";
         String filename = "config1.txt";
-        CountDownLatch mainLatch = new CountDownLatch(1); // mainLatch is used for signal other thread to start after mainThread prints day
-        //Exchanger<Material> exchanger = new Exchanger<>();
 
         boolean openSuccess = false;
 
@@ -25,7 +23,9 @@ public class Main {
 
                 ArrayList<Material> Materials = new ArrayList<Material>();
                 ArrayList<SupplierThread> Suppliers = new ArrayList<SupplierThread>();
+                ArrayList<SupplierThread> Suppliers_copy = new ArrayList<SupplierThread>();
                 ArrayList<FactoryThread> Factories = new ArrayList<FactoryThread>();
+                ArrayList<FactoryThread> Factories_copy = new ArrayList<FactoryThread>();
 
                 int days = 0;
                 int sup_parties = 0;
@@ -76,23 +76,45 @@ public class Main {
                     }
                 }
 
-                CyclicBarrier sup_barrier = new CyclicBarrier(sup_parties);
-                CyclicBarrier fac_barrier = new CyclicBarrier(fac_parties);
+                    for(int i = 1; i <= days; i++) {
+                        CyclicBarrier fac_barrier1 = new CyclicBarrier(fac_parties);
+                        CyclicBarrier fac_barrier2 = new CyclicBarrier(fac_parties);
+                        CyclicBarrier day_barrier = new CyclicBarrier(fac_parties + 1);
+                        if(i > 1) {
+                                Suppliers_copy = new ArrayList<>();
+                                Factories_copy = new ArrayList<>();
 
-                for(SupplierThread s: Suppliers) s.setBarrier(sup_barrier);
-                for(FactoryThread f: Factories) f.setBarrier(fac_barrier);
+                                for (SupplierThread s : Suppliers) {
+                                    Suppliers_copy.add(new SupplierThread(s.getName(), Materials, s.getSup_rate()));
+                                }
+                                for (FactoryThread f : Factories) {
+                                    Factories_copy.add(new FactoryThread(f.getName(), Materials, f.getF_lot(), f.getFac_rate(), f.getProduct_name()));
+                                }
+
+                                Suppliers = new ArrayList<>();
+                                Factories = new ArrayList<>();
+
+                                Suppliers.addAll(Suppliers_copy);
+                                Factories.addAll(Factories_copy);
+                            }
+
+                            for(FactoryThread f: Factories) f.setBarrier(fac_barrier1, fac_barrier2, day_barrier);
+
+                            System.out.printf("\n%-16s>>  .. \n", Thread.currentThread().getName()/*, "-".repeat(60)*/);
+                            System.out.printf("%-16s>>  Day %d \n", Thread.currentThread().getName(), i);
+                            for(SupplierThread s: Suppliers) {
+                                s.start();
+                                s.join();
+                            }
+                            for(FactoryThread f: Factories) f.start();
 
 
-//                    for(int i = 1; i <= days; i++) {
-                        System.out.printf("\n%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
-//                        System.out.printf("%-16s>>  Day %d \n", Thread.currentThread().getName(), i);
-                        for(SupplierThread s: Suppliers) {
-                            s.start();
-                            s.join();
+                            day_barrier.await();
+                            if(day_barrier.getParties() == 0) {
+                                day_barrier.reset();
+                            }
+
                         }
-                        for(FactoryThread f: Factories) f.start();
-
-//                    }
             } catch (Exception e) {
                 System.out.println(e);
             }
@@ -127,15 +149,17 @@ class Material extends Semaphore {
 }
 
 class SupplierThread extends Thread {
-    private CountDownLatch mainLatch;
     private CyclicBarrier barrier;
-  
     private ArrayList<Material> ML;
     private ArrayList<Integer> sup_rate;
     public SupplierThread(String name,  ArrayList<Material> M, ArrayList<Integer> sr) {
         super(name);
         ML = M;
         sup_rate = sr;
+    }
+
+    public ArrayList<Integer> getSup_rate() {
+        return sup_rate;
     }
 
     public void setBarrier(CyclicBarrier ba) {
@@ -156,11 +180,26 @@ class FactoryThread extends Thread {
     private ArrayList<Material> ML;
     private ArrayList<Integer> f_balance = new ArrayList<Integer>();
     private ArrayList<Integer> fac_rate;
-    private CyclicBarrier barrier;
+    private CyclicBarrier barrier1, barrier2, day_barrier;
     private int f_lot;
     private Exchanger<Material>  exchanger;
     private String product_name;
     private int lot = 0;
+
+    public ArrayList<Integer> getFac_rate() {
+        return fac_rate;
+    }
+    public int getF_lot() {
+        return f_lot;
+    }
+
+    public ArrayList<Integer> getF_balance() {
+        return f_balance;
+    }
+
+    public String getProduct_name() {
+        return product_name;
+    }
 
     public void setExchanger(Exchanger<Material> ex)     { exchanger = ex; }
 
@@ -176,8 +215,11 @@ class FactoryThread extends Thread {
         }
     }
 
-    public void setBarrier(CyclicBarrier ba) {
-        barrier = ba;
+    public void setBarrier(CyclicBarrier ba1, CyclicBarrier ba2, CyclicBarrier db) {
+        barrier1 = ba1;
+        barrier2 = ba2;
+        day_barrier = db;
+
     }
 
     @Override
@@ -196,7 +238,8 @@ class FactoryThread extends Thread {
         }
 
             try {
-                barrier.await();
+                barrier1.await();
+                if(barrier1.getParties() == 0) barrier1.reset();
             } catch (Exception e) {
             }
 
@@ -224,7 +267,7 @@ class FactoryThread extends Thread {
             System.out.println();
         }
 
-        try { barrier.await(); } catch (Exception e) { }
+        try { barrier2.await(); if(barrier2.getParties() == 0) barrier2.reset(); } catch (Exception e) { }
 
         boolean check = true;
         for(int i = 0; i < ML.size(); i++) {
@@ -254,6 +297,11 @@ class FactoryThread extends Thread {
                 }
 
             }
+        }
+        try {
+            day_barrier.await();
+        } catch (InterruptedException | BrokenBarrierException e) {
+            throw new RuntimeException(e);
         }
 
     }
