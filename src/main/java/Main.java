@@ -114,6 +114,7 @@ public class Main {
                 }
 
                 System.out.printf("\n%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
+                System.out.printf("%-16s>>  Summary \n", Thread.currentThread().getName());
                 for(FactoryThread f: Factories) {
                     System.out.printf("%-16s>>  Total %-10s =  %3d lots \n", Thread.currentThread().getName(), f.getProduct_name(), f.getLot());
                 }
@@ -235,16 +236,12 @@ class FactoryThread extends Thread {
             if(ML.get(i).getBalance() >= fac_rate.get(i)){
                 ML.get(i).useBalance(fac_rate.get(i));
                 f_balance.set(i, fac_rate.get(i));
-
-                System.out.printf("%-16s>>  Get          %3d %s balance = %3d %s", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             } else {
                 int balance = ML.get(i).getBalance();
                 ML.get(i).useBalance(balance);
                 f_balance.set(i, balance);
-
-                System.out.printf("%-16s>>  Get          %3d %s balance = %3d %s", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             }
-
+            System.out.printf("%-16s>>  %-8s %3d %-10s balance = %3d %s", Thread.currentThread().getName(), "Get", f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             System.out.println();
         }
 

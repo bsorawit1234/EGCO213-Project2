@@ -1,4 +1,4 @@
-D, 6
+D, 4
 M, buttons, zippers, velcros
 S, Supplier 1,  50, 50, 50
 S, Supplier 2,  100,  100,  100
