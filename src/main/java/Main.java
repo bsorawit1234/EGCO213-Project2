@@ -7,7 +7,7 @@ import java.util.concurrent.*;
 public class Main {
     public static void main(String[] args) {
         String path = "src/main/java/";
-        String filename = "config1.txt";
+        String filename = "config.txt";
 
         boolean openSuccess = false;
 
@@ -16,7 +16,6 @@ public class Main {
                 Scanner scanner = new Scanner(new File(path + filename));
                 System.out.printf("%-16s>>  read configs from %s\n", Thread.currentThread().getName(), path+filename);
                 openSuccess = true;
-
 
                 String line;
                 String[] col;
@@ -59,62 +58,65 @@ public class Main {
                             sup_parties++;
                         } else if(type.equals("F")) {
                             ArrayList<Integer> fac_rate = new ArrayList<Integer>();
-                            int produce = Integer.parseInt(col[3].trim());
+                            ArrayList<Integer> f_balance = new ArrayList<>();
                             String product = col[2].trim();
+                            int produce = Integer.parseInt(col[3].trim());
+                            int lot = 0; // not produce yet
 
                             System.out.printf("%-16s>>  %-12s daily use    rates =", Thread.currentThread().getName(), col[1].trim());
                             for(int j = 0; j < Materials.size(); j++) {
                                 int rate = Integer.parseInt(col[j+4].trim()) * produce;
                                 fac_rate.add(rate);
+                                f_balance.add(0);
                                 System.out.printf(" %3d %-10s", rate, Materials.get(j).getName());
                             }
                             System.out.printf("producing  %3d %s\n", produce, product);
 
-                            Factories.add(new FactoryThread(col[1].trim(), Materials, produce, fac_rate, product));
+                            Factories.add(new FactoryThread(col[1].trim(), Materials, produce, fac_rate, product, f_balance, lot));
                             fac_parties++;
                         }
                     }
                 }
 
-                    for(int i = 1; i <= days; i++) {
-                        CyclicBarrier fac_barrier1 = new CyclicBarrier(fac_parties);
-                        CyclicBarrier fac_barrier2 = new CyclicBarrier(fac_parties);
-                        CyclicBarrier day_barrier = new CyclicBarrier(fac_parties + 1);
-                        if(i > 1) {
-                                Suppliers_copy = new ArrayList<>();
-                                Factories_copy = new ArrayList<>();
+                for(int i = 1; i <= days; i++) {
+                    CyclicBarrier fac_barrier1 = new CyclicBarrier(fac_parties);
+                    CyclicBarrier fac_barrier2 = new CyclicBarrier(fac_parties);
+                    CyclicBarrier day_barrier = new CyclicBarrier(fac_parties + 1);
+                    if(i > 1) {
+                        Suppliers_copy = new ArrayList<>();
+                        Factories_copy = new ArrayList<>();
 
-                                for (SupplierThread s : Suppliers) {
-                                    Suppliers_copy.add(new SupplierThread(s.getName(), Materials, s.getSup_rate()));
-                                }
-                                for (FactoryThread f : Factories) {
-                                    Factories_copy.add(new FactoryThread(f.getName(), Materials, f.getF_lot(), f.getFac_rate(), f.getProduct_name()));
-                                }
-
-                                Suppliers = new ArrayList<>();
-                                Factories = new ArrayList<>();
-
-                                Suppliers.addAll(Suppliers_copy);
-                                Factories.addAll(Factories_copy);
-                            }
-
-                            for(FactoryThread f: Factories) f.setBarrier(fac_barrier1, fac_barrier2, day_barrier);
-
-                            System.out.printf("\n%-16s>>  .. \n", Thread.currentThread().getName()/*, "-".repeat(60)*/);
-                            System.out.printf("%-16s>>  Day %d \n", Thread.currentThread().getName(), i);
-                            for(SupplierThread s: Suppliers) {
-                                s.start();
-                                s.join();
-                            }
-                            for(FactoryThread f: Factories) f.start();
-
-
-                            day_barrier.await();
-                            if(day_barrier.getParties() == 0) {
-                                day_barrier.reset();
-                            }
-
+                        for (SupplierThread s : Suppliers) {
+                            Suppliers_copy.add(new SupplierThread(s.getName(), Materials, s.getSup_rate()));
                         }
+                        for (FactoryThread f : Factories) {
+                            Factories_copy.add(new FactoryThread(f.getName(), Materials, f.getF_lot(), f.getFac_rate(), f.getProduct_name(), f.getF_balance(), f.getLot()));
+                        }
+
+                        Suppliers = new ArrayList<>(Suppliers_copy);
+                        Factories = new ArrayList<>(Factories_copy);
+                    }
+
+                    for(FactoryThread f: Factories) f.setBarrier(fac_barrier1, fac_barrier2, day_barrier);
+
+                    System.out.printf("\n%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
+                    System.out.printf("%-16s>>  Day %d \n", Thread.currentThread().getName(), i);
+                    for(SupplierThread s: Suppliers) {
+                        s.start();
+                        s.join();
+                    }
+                    for(FactoryThread f: Factories) f.start();
+
+                    day_barrier.await();
+                    if(day_barrier.getParties() == 0) {
+                        day_barrier.reset();
+                    }
+                }
+
+                System.out.printf("\n%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
+                for(FactoryThread f: Factories) {
+                    System.out.printf("%-16s>>  Total %-10s =  %3d lots \n", Thread.currentThread().getName(), f.getProduct_name(), f.getLot());
+                }
             } catch (Exception e) {
                 System.out.println(e);
             }
@@ -134,22 +136,16 @@ class Material extends Semaphore {
     public int getBalance() {
         return balance;
     }
-
     public String getName() {
         return name;
     }
-
-    public void addBalance(int b) {
-        balance += b;
-    }
-
+    public void addBalance(int b) { balance += b; }
     public void useBalance(int b) {
         balance -= b;
     }
 }
 
 class SupplierThread extends Thread {
-    private CyclicBarrier barrier;
     private ArrayList<Material> ML;
     private ArrayList<Integer> sup_rate;
     public SupplierThread(String name,  ArrayList<Material> M, ArrayList<Integer> sr) {
@@ -160,10 +156,6 @@ class SupplierThread extends Thread {
 
     public ArrayList<Integer> getSup_rate() {
         return sup_rate;
-    }
-
-    public void setBarrier(CyclicBarrier ba) {
-        barrier = ba;
     }
 
     public void run() {
@@ -181,10 +173,8 @@ class FactoryThread extends Thread {
     private ArrayList<Integer> f_balance = new ArrayList<Integer>();
     private ArrayList<Integer> fac_rate;
     private CyclicBarrier barrier1, barrier2, day_barrier;
-    private int f_lot;
-    private Exchanger<Material>  exchanger;
+    private int f_lot, lot;
     private String product_name;
-    private int lot = 0;
 
     public ArrayList<Integer> getFac_rate() {
         return fac_rate;
@@ -197,22 +187,17 @@ class FactoryThread extends Thread {
         return f_balance;
     }
 
-    public String getProduct_name() {
-        return product_name;
-    }
+    public String getProduct_name() { return product_name;}
+    public int getLot() { return lot; }
 
-    public void setExchanger(Exchanger<Material> ex)     { exchanger = ex; }
-
-    public FactoryThread(String name, ArrayList<Material> M, int lot, ArrayList<Integer> fac, String pn) {
+    public FactoryThread(String name, ArrayList<Material> M, int fl, ArrayList<Integer> fr, String pn, ArrayList<Integer> fb, int l) {
         super(name);
         ML = M;
-        f_lot = lot;
-        fac_rate = fac;
+        f_lot = fl;
+        fac_rate = fr;
         product_name = pn;
-
-        for( int i = 0; i < ML.size(); i++ ) {
-            f_balance.add(0);
-        }
+        f_balance = fb;
+        lot = l;
     }
 
     public void setBarrier(CyclicBarrier ba1, CyclicBarrier ba2, CyclicBarrier db) {
@@ -225,31 +210,23 @@ class FactoryThread extends Thread {
     @Override
     public void run() {
         synchronized (this) {
-            System.out.printf("%-16s>>  Holding", Thread.currentThread().getName());
-            for (int i = 0; i < ML.size(); i++) {
-                System.out.printf("%5d %s ", f_balance.get(i), ML.get(i).getName());
-            }
-            System.out.println();
             int delay = (int) (Math.random() * 123);
             try {
                 Thread.sleep(delay);
             } catch (InterruptedException e) {
             }
+
+            System.out.printf("%-16s>>  Holding", Thread.currentThread().getName());
+            for (int i = 0; i < ML.size(); i++) {
+                System.out.printf("%5d %s ", f_balance.get(i), ML.get(i).getName());
+            }
+            System.out.println();
         }
 
-            try {
-                barrier1.await();
-                if(barrier1.getParties() == 0) barrier1.reset();
-            } catch (Exception e) {
-            }
-
-//        for( int i = 0; i < ML.size(); i++ ) {
-//            if( f_lot * f_1 < ML.get(0).getBalance() || f_lot * f_2 < ML.get(1).getBalance()) {
-//                f_balance.add(0, f_lot * f_1);
-//                System.out.printf("%-16s>>  Get %5s %s             balance = %4d %s\n", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
-//            }
-//        }
-
+        try {
+            barrier1.await();
+            if (barrier1.getParties() == 0) barrier1.reset();
+        } catch (Exception e) { }
 
         for (int i = 0; i < ML.size(); i++) {
             int delay = (int) (Math.random() * 123);
@@ -258,12 +235,16 @@ class FactoryThread extends Thread {
             if(ML.get(i).getBalance() >= fac_rate.get(i)){
                 ML.get(i).useBalance(fac_rate.get(i));
                 f_balance.set(i, fac_rate.get(i));
+
+                System.out.printf("%-16s>>  Get          %3d %s balance = %3d %s", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             } else {
-                ML.get(i).useBalance(ML.get(i).getBalance());
-                f_balance.set(i, ML.get(i).getBalance());
+                int balance = ML.get(i).getBalance();
+                ML.get(i).useBalance(balance);
+                f_balance.set(i, balance);
+
+                System.out.printf("%-16s>>  Get          %3d %s balance = %3d %s", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             }
 
-            System.out.printf("%-16s>>  Get          %3d %s balance = %3d %s", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
             System.out.println();
         }
 
@@ -286,16 +267,12 @@ class FactoryThread extends Thread {
         } else {
             System.out.printf("%-16s>>  %-10s production fails\n", Thread.currentThread().getName(), product_name);
 
-            int remain = 0;
-            for(int fb: f_balance) if(fb == 0) remain++;
-
-            if(remain < f_balance.size()){
-                for (int i = 0; i < ML.size(); i++) {
-                    ML.get(i).addBalance(f_balance.get(i));
-                    if (f_balance.get(i) > 0) System.out.printf("%-16s>>  Put  %3d %s   balance = %3d %s\n", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
-                    f_balance.set(i, 0);
-                }
-
+            for(int i = 0; i < f_balance.size(); i++) {
+               if(f_balance.get(i) < fac_rate.get(i) && f_balance.get(i) > 0) {
+                   ML.get(i).addBalance(f_balance.get(i));
+                   System.out.printf("%-16s>>  Put  %3d %s   balance = %3d %s\n", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
+                   f_balance.set(i, 0);
+               }
             }
         }
         try {
