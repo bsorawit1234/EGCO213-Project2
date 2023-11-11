@@ -27,7 +27,6 @@ public class Main {
                 ArrayList<FactoryThread> Factories_copy = new ArrayList<FactoryThread>();
 
                 int days = 0;
-                int sup_parties = 0;
                 int fac_parties = 0;
 
                 for(int i = 0; scanner.hasNext(); i++) {
@@ -55,7 +54,6 @@ public class Main {
                             }
                             System.out.println();
                             Suppliers.add(new SupplierThread(col[1].trim(), Materials, sup_rate));
-                            sup_parties++;
                         } else if(type.equals("F")) {
                             ArrayList<Integer> fac_rate = new ArrayList<Integer>();
                             ArrayList<Integer> f_balance = new ArrayList<>();
@@ -108,13 +106,13 @@ public class Main {
                     for(FactoryThread f: Factories) f.start();
 
                     day_barrier.await();
-                    if(day_barrier.getParties() == 0) {
-                        day_barrier.reset();
-                    }
                 }
 
                 System.out.printf("\n%-16s>>  %s \n", Thread.currentThread().getName(), "-".repeat(60));
                 System.out.printf("%-16s>>  Summary \n", Thread.currentThread().getName());
+
+                Collections.sort(Factories);
+
                 for(FactoryThread f: Factories) {
                     System.out.printf("%-16s>>  Total %-10s =  %3d lots \n", Thread.currentThread().getName(), f.getProduct_name(), f.getLot());
                 }
@@ -169,7 +167,7 @@ class SupplierThread extends Thread {
     }
 }
 
-class FactoryThread extends Thread {
+class FactoryThread extends Thread implements Comparable<FactoryThread> {
     private ArrayList<Material> ML;
     private ArrayList<Integer> f_balance = new ArrayList<Integer>();
     private ArrayList<Integer> fac_rate;
@@ -208,6 +206,18 @@ class FactoryThread extends Thread {
 
     }
 
+    public int compareTo(FactoryThread other) {
+        if(lot > other.lot) {
+            return -1;
+        } else {
+            if(product_name.compareToIgnoreCase(other.product_name) > 0) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+    }
+
     @Override
     public void run() {
         synchronized (this) {
@@ -226,7 +236,6 @@ class FactoryThread extends Thread {
 
         try {
             barrier1.await();
-            if (barrier1.getParties() == 0) barrier1.reset();
         } catch (Exception e) { }
 
         for (int i = 0; i < ML.size(); i++) {
@@ -245,7 +254,7 @@ class FactoryThread extends Thread {
             System.out.println();
         }
 
-        try { barrier2.await(); if(barrier2.getParties() == 0) barrier2.reset(); } catch (Exception e) { }
+        try { barrier2.await(); } catch (Exception e) { }
 
         boolean check = true;
         for(int i = 0; i < ML.size(); i++) {
