@@ -8,13 +8,13 @@ public class Main {
     public static void main(String[] args) {
         String path = "src/main/java/";
         String filename = "config.txt";
-
+        Scanner keyboardScan = new Scanner(System.in);
         boolean openSuccess = false;
 
         while (!openSuccess) {
             try {
                 Scanner scanner = new Scanner(new File(path + filename));
-                System.out.printf("%-16s>>  read configs from %s\n", Thread.currentThread().getName(), path+filename);
+                System.out.printf("\n%-16s>>  read configs from %s\n", Thread.currentThread().getName(), path+filename);
                 openSuccess = true;
 
                 String line;
@@ -116,6 +116,10 @@ public class Main {
                 for(FactoryThread f: Factories) {
                     System.out.printf("%-16s>>  Total %-10s =  %3d lots \n", Thread.currentThread().getName(), f.getProduct_name(), f.getLot());
                 }
+            } catch (FileNotFoundException e) {
+                System.out.println(e);
+                System.out.printf("%-16s>> Enter config file for simulation =\n", "Thread " + Thread.currentThread().getName());
+                filename = keyboardScan.next();
             } catch (Exception e) {
                 System.out.println(e);
             }
