@@ -242,7 +242,7 @@ class FactoryThread extends Thread implements Comparable<FactoryThread> {
             int delay = (int) (Math.random() * 123);
             try { Thread.sleep(delay); } catch (InterruptedException e) { }
 
-            if(ML.get(i).getBalance() >= fac_rate.get(i)){
+            if(ML.get(i).getBalance() >= fac_rate.get(i) && ML.get(i).getBalance() > 0){
                 ML.get(i).useBalance(fac_rate.get(i));
                 f_balance.set(i, fac_rate.get(i));
             } else {
@@ -276,7 +276,7 @@ class FactoryThread extends Thread implements Comparable<FactoryThread> {
             for(int i = 0; i < f_balance.size(); i++) {
                if(f_balance.get(i) < fac_rate.get(i) && f_balance.get(i) > 0) {
                    ML.get(i).addBalance(f_balance.get(i));
-                   System.out.printf("%-16s>>  Put  %3d %s   balance = %3d %s\n", Thread.currentThread().getName(), f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
+                   System.out.printf("%-16s>>  %-8s %3d %-10s balance = %3d %s\n", Thread.currentThread().getName(), "Put", f_balance.get(i), ML.get(i).getName(), ML.get(i).getBalance(), ML.get(i).getName());
                    f_balance.set(i, 0);
                }
             }
